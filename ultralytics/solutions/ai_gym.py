@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 from ultralytics.solutions.solutions import BaseSolution
 from ultralytics.utils.plotting import Annotator
@@ -25,7 +25,7 @@ class AIGym(BaseSolution):
         monitor: Processes a frame to detect poses, calculate angles, and count repetitions.
 
     Examples:
-        >>> gym = AIGym(model="yolo11n-pose.pt")
+        >>> gym = AIGym(model="yolov8n-pose.pt")
         >>> image = cv2.imread("gym_scene.jpg")
         >>> processed_image = gym.monitor(image)
         >>> cv2.imshow("Processed Image", processed_image)

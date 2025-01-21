@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 """
 Ultralytics Results, Boxes and Masks classes for handling inference results.
 
@@ -496,7 +496,7 @@ class Results(SimpleClass):
         """
         assert color_mode in {"instance", "class"}, f"Expected color_mode='instance' or 'class', not {color_mode}."
         if img is None and isinstance(self.orig_img, torch.Tensor):
-            img = (self.orig_img[0].detach().permute(1, 2, 0).contiguous() * 255).to(torch.uint8).cpu().numpy()
+            img = (self.orig_img[0].detach().permute(1, 2, 0).contiguous() * 255).to(torch.uint8).cpu().numpy()[:,:,:3]
 
         names = self.names
         is_obb = self.obb is not None
@@ -504,7 +504,7 @@ class Results(SimpleClass):
         pred_masks, show_masks = self.masks, masks
         pred_probs, show_probs = self.probs, probs
         annotator = Annotator(
-            deepcopy(self.orig_img if img is None else img),
+            deepcopy(self.orig_img[:,:,:3] if img is None else img[:,:,:3]),
             line_width,
             font_size,
             font,
@@ -517,7 +517,7 @@ class Results(SimpleClass):
             if im_gpu is None:
                 img = LetterBox(pred_masks.shape[1:])(image=annotator.result())
                 im_gpu = (
-                    torch.as_tensor(img, dtype=torch.float16, device=pred_masks.data.device)
+                    torch.as_tensor(img[:,:,:3], dtype=torch.float16, device=pred_masks.data.device)
                     .permute(2, 0, 1)
                     .flip(0)
                     .contiguous()
@@ -652,11 +652,12 @@ class Results(SimpleClass):
         """
         log_string = ""
         probs = self.probs
+        boxes = self.boxes
         if len(self) == 0:
             return log_string if probs is not None else f"{log_string}(no detections), "
         if probs is not None:
             log_string += f"{', '.join(f'{self.names[j]} {probs.data[j]:.2f}' for j in probs.top5)}, "
-        if boxes := self.boxes:
+        if boxes:
             for c in boxes.cls.unique():
                 n = (boxes.cls == c).sum()  # detections per class
                 log_string += f"{n} {self.names[int(c)]}{'s' * (n > 1)}, "
@@ -839,7 +840,7 @@ class Results(SimpleClass):
             >>> df_result = results[0].to_df()
             >>> print(df_result)
         """
-        import pandas as pd  # scope for faster 'import ultralytics'
+        import pandas as pd
 
         return pd.DataFrame(self.summary(normalize=normalize, decimals=decimals))
 
@@ -1718,7 +1719,7 @@ class OBB(BaseTensor):
         Examples:
             >>> import torch
             >>> from ultralytics import YOLO
-            >>> model = YOLO("yolo11n-obb.pt")
+            >>> model = YOLO("yolov8n-obb.pt")
             >>> results = model("path/to/image.jpg")
             >>> for result in results:
             ...     obb = result.obb

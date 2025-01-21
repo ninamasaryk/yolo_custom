@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 import torch
 import torch.nn as nn

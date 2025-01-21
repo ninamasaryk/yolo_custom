@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 from ultralytics.utils import SETTINGS, TESTS_RUNNING
 from ultralytics.utils.torch_utils import model_info_for_loggers

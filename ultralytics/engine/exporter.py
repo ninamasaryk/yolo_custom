@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 """
 Export a YOLO PyTorch model to other formats. TensorFlow exports authored by https://github.com/zldrobit.
 
@@ -19,7 +19,6 @@ PaddlePaddle            | `paddle`                  | yolo11n_paddle_model/
 MNN                     | `mnn`                     | yolo11n.mnn
 NCNN                    | `ncnn`                    | yolo11n_ncnn_model/
 IMX                     | `imx`                     | yolo11n_imx_model/
-RKNN                    | `rknn`                    | yolo11n_rknn_model/
 
 Requirements:
     $ pip install "ultralytics[export]"
@@ -79,13 +78,11 @@ from ultralytics.nn.tasks import DetectionModel, SegmentationModel, WorldModel
 from ultralytics.utils import (
     ARM64,
     DEFAULT_CFG,
-    IS_COLAB,
     IS_JETSON,
     LINUX,
     LOGGER,
     MACOS,
     PYTHON_VERSION,
-    RKNN_CHIPS,
     ROOT,
     WINDOWS,
     __version__,
@@ -94,13 +91,7 @@ from ultralytics.utils import (
     get_default_args,
     yaml_save,
 )
-from ultralytics.utils.checks import (
-    check_imgsz,
-    check_is_path_safe,
-    check_requirements,
-    check_version,
-    is_sudo_available,
-)
+from ultralytics.utils.checks import check_imgsz, check_is_path_safe, check_requirements, check_version
 from ultralytics.utils.downloads import attempt_download_asset, get_github_assets, safe_download
 from ultralytics.utils.files import file_size, spaces_in_path
 from ultralytics.utils.ops import Profile
@@ -125,7 +116,6 @@ def export_formats():
         ["MNN", "mnn", ".mnn", True, True, ["batch", "half", "int8"]],
         ["NCNN", "ncnn", "_ncnn_model", True, True, ["batch", "half"]],
         ["IMX", "imx", "_imx_model", True, True, ["int8"]],
-        ["RKNN", "rknn", "_rknn_model", False, False, ["batch", "name"]],
     ]
     return dict(zip(["Format", "Argument", "Suffix", "CPU", "GPU", "Arguments"], zip(*x)))
 
@@ -230,10 +220,22 @@ class Exporter:
         flags = [x == fmt for x in fmts]
         if sum(flags) != 1:
             raise ValueError(f"Invalid export format='{fmt}'. Valid formats are {fmts}")
-        (jit, onnx, xml, engine, coreml, saved_model, pb, tflite, edgetpu, tfjs, paddle, mnn, ncnn, imx, rknn) = (
-            flags  # export booleans
-        )
-
+        (
+            jit,
+            onnx,
+            xml,
+            engine,
+            coreml,
+            saved_model,
+            pb,
+            tflite,
+            edgetpu,
+            tfjs,
+            paddle,
+            mnn,
+            ncnn,
+            imx,
+        ) = flags  # export booleans
         is_tf_format = any((saved_model, pb, tflite, edgetpu, tfjs))
 
         # Device
@@ -269,16 +271,6 @@ class Exporter:
         if self.args.optimize:
             assert not ncnn, "optimize=True not compatible with format='ncnn', i.e. use optimize=False"
             assert self.device.type == "cpu", "optimize=True not compatible with cuda devices, i.e. use device='cpu'"
-        if rknn:
-            if not self.args.name:
-                LOGGER.warning(
-                    "WARNING ⚠️ Rockchip RKNN export requires a missing 'name' arg for processor type. Using default name='rk3588'."
-                )
-                self.args.name = "rk3588"
-            self.args.name = self.args.name.lower()
-            assert self.args.name in RKNN_CHIPS, (
-                f"Invalid processor name '{self.args.name}' for Rockchip RKNN export. Valid names are {RKNN_CHIPS}."
-            )
         if self.args.int8 and tflite:
             assert not getattr(model, "end2end", False), "TFLite INT8 export not supported for end2end models."
         if edgetpu:
@@ -365,7 +357,7 @@ class Exporter:
         )
         self.pretty_name = Path(self.model.yaml.get("yaml_file", self.file)).stem.replace("yolo", "YOLO")
         data = model.args["data"] if hasattr(model, "args") and isinstance(model.args, dict) else ""
-        description = f"Ultralytics {self.pretty_name} model {f'trained on {data}' if data else ''}"
+        description = f'Ultralytics {self.pretty_name} model {f"trained on {data}" if data else ""}'
         self.metadata = {
             "description": description,
             "author": "Ultralytics",
@@ -385,7 +377,7 @@ class Exporter:
 
         LOGGER.info(
             f"\n{colorstr('PyTorch:')} starting from '{file}' with input shape {tuple(im.shape)} BCHW and "
-            f"output shape(s) {self.output_shape} ({file_size(file):.1f} MB)"
+            f'output shape(s) {self.output_shape} ({file_size(file):.1f} MB)'
         )
 
         # Exports
@@ -419,8 +411,6 @@ class Exporter:
             f[12], _ = self.export_ncnn()
         if imx:
             f[13], _ = self.export_imx()
-        if rknn:
-            f[14], _ = self.export_rknn()
 
         # Finish
         f = [str(x) for x in f if x]  # filter out '' and None
@@ -437,11 +427,11 @@ class Exporter:
             predict_data = f"data={data}" if model.task == "segment" and fmt == "pb" else ""
             q = "int8" if self.args.int8 else "half" if self.args.half else ""  # quantization
             LOGGER.info(
-                f"\nExport complete ({time.time() - t:.1f}s)"
+                f'\nExport complete ({time.time() - t:.1f}s)'
                 f"\nResults saved to {colorstr('bold', file.parent.resolve())}"
-                f"\nPredict:         yolo predict task={model.task} model={f} imgsz={imgsz} {q} {predict_data}"
-                f"\nValidate:        yolo val task={model.task} model={f} imgsz={imgsz} data={data} {q} {s}"
-                f"\nVisualize:       https://netron.app"
+                f'\nPredict:         yolo predict task={model.task} model={f} imgsz={imgsz} {q} {predict_data}'
+                f'\nValidate:        yolo val task={model.task} model={f} imgsz={imgsz} data={data} {q} {s}'
+                f'\nVisualize:       https://netron.app'
             )
 
         self.run_callbacks("on_export_end")
@@ -690,16 +680,16 @@ class Exporter:
                 shutil.rmtree(unzip_dir)  # delete unzip dir
 
         ncnn_args = [
-            f"ncnnparam={f / 'model.ncnn.param'}",
-            f"ncnnbin={f / 'model.ncnn.bin'}",
-            f"ncnnpy={f / 'model_ncnn.py'}",
+            f'ncnnparam={f / "model.ncnn.param"}',
+            f'ncnnbin={f / "model.ncnn.bin"}',
+            f'ncnnpy={f / "model_ncnn.py"}',
         ]
 
         pnnx_args = [
-            f"pnnxparam={f / 'model.pnnx.param'}",
-            f"pnnxbin={f / 'model.pnnx.bin'}",
-            f"pnnxpy={f / 'model_pnnx.py'}",
-            f"pnnxonnx={f / 'model.pnnx.onnx'}",
+            f'pnnxparam={f / "model.pnnx.param"}',
+            f'pnnxbin={f / "model.pnnx.bin"}',
+            f'pnnxpy={f / "model_pnnx.py"}',
+            f'pnnxonnx={f / "model.pnnx.onnx"}',
         ]
 
         cmd = [
@@ -750,7 +740,7 @@ class Exporter:
             model = IOSDetectModel(self.model, self.im) if self.args.nms else self.model
         else:
             if self.args.nms:
-                LOGGER.warning(f"{prefix} WARNING ⚠️ 'nms=True' is only available for Detect models like 'yolo11n.pt'.")
+                LOGGER.warning(f"{prefix} WARNING ⚠️ 'nms=True' is only available for Detect models like 'yolov8n.pt'.")
                 # TODO CoreML Segment and Pose model pipelining
             model = self.model
 
@@ -1081,6 +1071,7 @@ class Exporter:
         assert LINUX, f"export only supported on Linux. See {help_url}"
         if subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True).returncode != 0:
             LOGGER.info(f"\n{prefix} export requires Edge TPU compiler. Attempting install from {help_url}")
+            sudo = subprocess.run("sudo --version >/dev/null", shell=True).returncode == 0  # sudo installed on system
             for c in (
                 "curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -",
                 'echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | '
@@ -1088,7 +1079,7 @@ class Exporter:
                 "sudo apt-get update",
                 "sudo apt-get install edgetpu-compiler",
             ):
-                subprocess.run(c if is_sudo_available() else c.replace("sudo ", ""), shell=True, check=True)
+                subprocess.run(c if sudo else c.replace("sudo ", ""), shell=True, check=True)
         ver = subprocess.run(cmd, shell=True, capture_output=True, check=True).stdout.decode().split()[-1]
 
         LOGGER.info(f"\n{prefix} starting export with Edge TPU compiler {ver}...")
@@ -1145,41 +1136,10 @@ class Exporter:
         return f, None
 
     @try_export
-    def export_rknn(self, prefix=colorstr("RKNN:")):
-        """YOLO RKNN model export."""
-        LOGGER.info(f"\n{prefix} starting export with rknn-toolkit2...")
-
-        check_requirements("rknn-toolkit2")
-        if IS_COLAB:
-            # Prevent 'exit' from closing the notebook https://github.com/airockchip/rknn-toolkit2/issues/259
-            import builtins
-
-            builtins.exit = lambda: None
-
-        from rknn.api import RKNN
-
-        f, _ = self.export_onnx()
-
-        platform = self.args.name
-
-        export_path = Path(f"{Path(f).stem}_rknn_model")
-        export_path.mkdir(exist_ok=True)
-
-        rknn = RKNN(verbose=False)
-        rknn.config(mean_values=[[0, 0, 0]], std_values=[[255, 255, 255]], target_platform=platform)
-        _ = rknn.load_onnx(model=f)
-        _ = rknn.build(do_quantization=False)  # TODO: Add quantization support
-        f = f.replace(".onnx", f"-{platform}.rknn")
-        _ = rknn.export_rknn(f"{export_path / f}")
-        yaml_save(export_path / "metadata.yaml", self.metadata)
-        return export_path, None
-
     def export_imx(self, prefix=colorstr("IMX:")):
         """YOLO IMX export."""
         gptq = False
-        assert LINUX, (
-            "export only supported on Linux. See https://developer.aitrios.sony-semicon.com/en/raspberrypi-ai-camera/documentation/imx500-converter"
-        )
+        assert LINUX, "export only supported on Linux. See https://developer.aitrios.sony-semicon.com/en/raspberrypi-ai-camera/documentation/imx500-converter"
         if getattr(self.model, "end2end", False):
             raise ValueError("IMX export is not supported for end2end models.")
         if "C2f" not in self.model.__str__():
@@ -1198,10 +1158,7 @@ class Exporter:
             if "openjdk 17" not in str(out.stdout):
                 raise FileNotFoundError
         except FileNotFoundError:
-            c = ["apt", "install", "-y", "openjdk-17-jdk", "openjdk-17-jre"]
-            if is_sudo_available():
-                c.insert(0, "sudo")
-            subprocess.run(c, check=True)
+            subprocess.run(["sudo", "apt", "install", "-y", "openjdk-17-jdk", "openjdk-17-jre"], check=True)
 
         def representative_dataset_gen(dataloader=self.get_int8_calibration_dataloader(prefix)):
             for batch in dataloader:

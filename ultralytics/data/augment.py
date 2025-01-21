@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 import math
 import random
@@ -271,9 +271,9 @@ class Compose:
         """
         assert isinstance(index, (int, list)), f"The indices should be either list or int type but got {type(index)}"
         if isinstance(index, list):
-            assert isinstance(value, list), (
-                f"The indices should be the same type as values, but got {type(index)} and {type(value)}"
-            )
+            assert isinstance(
+                value, list
+            ), f"The indices should be the same type as values, but got {type(index)} and {type(value)}"
         if isinstance(index, int):
             index, value = [index], [value]
         for i, v in zip(index, value):
@@ -1586,9 +1586,12 @@ class LetterBox:
             img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
         top, bottom = int(round(dh - 0.1)) if self.center else 0, int(round(dh + 0.1))
         left, right = int(round(dw - 0.1)) if self.center else 0, int(round(dw + 0.1))
-        img = cv2.copyMakeBorder(
-            img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
-        )  # add border
+        # Create border for multi-channel image
+        border_value = tuple([114] * img.shape[-1])  # Create border value for all channels
+        padded_shape = (img.shape[0] + top + bottom, img.shape[1] + left + right) + img.shape[2:]
+        padded_img = np.full(padded_shape, border_value[0], dtype=img.dtype)
+        padded_img[top:top+img.shape[0], left:left+img.shape[1]] = img
+        img = padded_img
         if labels.get("ratio_pad"):
             labels["ratio_pad"] = (labels["ratio_pad"], (left, top))  # for evaluation
 
@@ -1860,9 +1863,6 @@ class Albumentations:
                 if self.contains_spatial
                 else A.Compose(T)
             )
-            if hasattr(self.transform, "set_random_seed"):
-                # Required for deterministic transforms in albumentations>=1.4.21
-                self.transform.set_random_seed(torch.initial_seed())
             LOGGER.info(prefix + ", ".join(f"{x}".replace("always_apply=False, ", "") for x in T if x.p))
         except ImportError:  # package not installed, skip
             pass
@@ -2101,8 +2101,11 @@ class Format:
         """
         if len(img.shape) < 3:
             img = np.expand_dims(img, -1)
-        img = img.transpose(2, 0, 1)
-        img = np.ascontiguousarray(img[::-1] if random.uniform(0, 1) > self.bgr else img)
+        img = img.transpose(2, 0, 1)  # HWC to CHW
+        # Only flip first 3 channels if bgr is enabled, leave other channels unchanged
+        if random.uniform(0, 1) > self.bgr:
+            img = np.concatenate([img[:3][::-1], img[3:]], axis=0) if img.shape[0] >= 3 else img
+        img = np.ascontiguousarray(img)
         img = torch.from_numpy(img)
         return img
 

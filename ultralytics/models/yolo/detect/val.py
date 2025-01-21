@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 import os
 from pathlib import Path
@@ -168,7 +168,7 @@ class DetectionValidator(BaseValidator):
                     predn,
                     self.args.save_conf,
                     pbatch["ori_shape"],
-                    self.save_dir / "labels" / f"{Path(batch['im_file'][si]).stem}.txt",
+                    self.save_dir / "labels" / f'{Path(batch["im_file"][si]).stem}.txt',
                 )
 
     def finalize_metrics(self, *args, **kwargs):

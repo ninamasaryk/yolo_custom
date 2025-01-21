@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 import glob
 import math
@@ -8,11 +8,13 @@ from copy import deepcopy
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Optional
+import tifffile
 
 import cv2
 import numpy as np
 import psutil
 from torch.utils.data import Dataset
+from scipy.ndimage import zoom
 
 from ultralytics.data.utils import FORMATS_HELP_MSG, HELP_URL, IMG_FORMATS
 from ultralytics.utils import DEFAULT_CFG, LOCAL_RANK, LOGGER, NUM_THREADS, TQDM
@@ -70,6 +72,7 @@ class BaseDataset(Dataset):
         self.single_cls = single_cls
         self.prefix = prefix
         self.fraction = fraction
+        self.ch = 33
         self.im_files = self.get_img_files(self.img_path)
         self.labels = self.get_labels()
         self.update_labels(include_class=classes)  # single_cls and include_class
@@ -158,9 +161,11 @@ class BaseDataset(Dataset):
                 except Exception as e:
                     LOGGER.warning(f"{self.prefix}WARNING ⚠️ Removing corrupt *.npy image file {fn} due to: {e}")
                     Path(fn).unlink(missing_ok=True)
-                    im = cv2.imread(f)  # BGR
+                    # im = cv2.imread(f)  # BGR
+                    im = tifffile.imread(f)
             else:  # read image
-                im = cv2.imread(f)  # BGR
+                # im = cv2.imread(f)  # BGR
+                im = tifffile.imread(f)
             if im is None:
                 raise FileNotFoundError(f"Image Not Found {f}")
 
@@ -169,9 +174,11 @@ class BaseDataset(Dataset):
                 r = self.imgsz / max(h0, w0)  # ratio
                 if r != 1:  # if sizes are not equal
                     w, h = (min(math.ceil(w0 * r), self.imgsz), min(math.ceil(h0 * r), self.imgsz))
-                    im = cv2.resize(im, (w, h), interpolation=cv2.INTER_LINEAR)
+                    zoom_factors = (h/h0, w/w0) + (1,) * (im.ndim - 2)  # preserve additional channels
+                    # im = zoom(im, zoom_factors, order=1)
             elif not (h0 == w0 == self.imgsz):  # resize by stretching image to square imgsz
-                im = cv2.resize(im, (self.imgsz, self.imgsz), interpolation=cv2.INTER_LINEAR)
+                zoom_factors = (self.imgsz/h0, self.imgsz/w0) + (1,) * (im.ndim - 2)
+                # im = zoom(im, zoom_factors, order=1)
 
             # Add to buffer if training with augmentations
             if self.augment:

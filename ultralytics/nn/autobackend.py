@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 import ast
 import json
@@ -13,8 +13,8 @@ import torch
 import torch.nn as nn
 from PIL import Image
 
-from ultralytics.utils import ARM64, IS_JETSON, IS_RASPBERRYPI, LINUX, LOGGER, PYTHON_VERSION, ROOT, yaml_load
-from ultralytics.utils.checks import check_requirements, check_suffix, check_version, check_yaml, is_rockchip
+from ultralytics.utils import ARM64, IS_JETSON, IS_RASPBERRYPI, LINUX, LOGGER, ROOT, yaml_load
+from ultralytics.utils.checks import check_requirements, check_suffix, check_version, check_yaml
 from ultralytics.utils.downloads import attempt_download_asset, is_url
 
 
@@ -60,7 +60,7 @@ class AutoBackend(nn.Module):
 
         Supported Formats and Naming Conventions:
             | Format                | File Suffix       |
-            | --------------------- | ----------------- |
+            |-----------------------|-------------------|
             | PyTorch               | *.pt              |
             | TorchScript           | *.torchscript     |
             | ONNX Runtime          | *.onnx            |
@@ -75,8 +75,6 @@ class AutoBackend(nn.Module):
             | PaddlePaddle          | *_paddle_model/   |
             | MNN                   | *.mnn             |
             | NCNN                  | *_ncnn_model/     |
-            | IMX                   | *_imx_model/      |
-            | RKNN                  | *_rknn_model/     |
 
     This class offers dynamic backend switching capabilities based on the input model format, making it easier to deploy
     models across various platforms.
@@ -126,11 +124,10 @@ class AutoBackend(nn.Module):
             mnn,
             ncnn,
             imx,
-            rknn,
             triton,
         ) = self._model_type(w)
         fp16 &= pt or jit or onnx or xml or engine or nn_module or triton  # FP16
-        nhwc = coreml or saved_model or pb or tflite or edgetpu or rknn  # BHWC formats (vs torch BCWH)
+        nhwc = coreml or saved_model or pb or tflite or edgetpu  # BHWC formats (vs torch BCWH)
         stride = 32  # default stride
         model, metadata, task = None, None, None
 
@@ -265,11 +262,6 @@ class AutoBackend(nn.Module):
         # TensorRT
         elif engine:
             LOGGER.info(f"Loading {w} for TensorRT inference...")
-
-            if IS_JETSON and PYTHON_VERSION <= "3.8.0":
-                # fix error: `np.bool` was a deprecated alias for the builtin `bool` for JetPack 4 with Python <= 3.8.0
-                check_requirements("numpy==1.23.5")
-
             try:
                 import tensorrt as trt  # noqa https://developer.nvidia.com/nvidia-tensorrt-download
             except ImportError:
@@ -469,22 +461,6 @@ class AutoBackend(nn.Module):
             model = TritonRemoteModel(w)
             metadata = model.metadata
 
-        # RKNN
-        elif rknn:
-            if not is_rockchip():
-                raise OSError("RKNN inference is only supported on Rockchip devices.")
-            LOGGER.info(f"Loading {w} for RKNN inference...")
-            check_requirements("rknn-toolkit-lite2")
-            from rknnlite.api import RKNNLite
-
-            w = Path(w)
-            if not w.is_file():  # if not *.rknn
-                w = next(w.rglob("*.rknn"))  # get *.rknn file from *_rknn_model dir
-            rknn_model = RKNNLite()
-            rknn_model.load_rknn(w)
-            ret = rknn_model.init_runtime()
-            metadata = Path(w).parent / "metadata.yaml"
-
         # Any other format (unsupported)
         else:
             from ultralytics.engine.exporter import export_formats
@@ -641,9 +617,10 @@ class AutoBackend(nn.Module):
                 # box = xywh2xyxy(y['coordinates'] * [[w, h, w, h]])  # xyxy pixels
                 # conf, cls = y['confidence'].max(1), y['confidence'].argmax(1).astype(np.float32)
                 # y = np.concatenate((box, conf.reshape(-1, 1), cls.reshape(-1, 1)), 1)
-            y = list(y.values())
-            if len(y) == 2 and len(y[1].shape) != 4:  # segmentation model
-                y = list(reversed(y))  # reversed for segmentation models (pred, proto)
+            elif len(y) == 1:  # classification model
+                y = list(y.values())
+            elif len(y) == 2:  # segmentation model
+                y = list(reversed(y.values()))  # reversed for segmentation models (pred, proto)
 
         # PaddlePaddle
         elif self.paddle:
@@ -670,12 +647,6 @@ class AutoBackend(nn.Module):
         elif self.triton:
             im = im.cpu().numpy()  # torch to numpy
             y = self.model(im)
-
-        # RKNN
-        elif self.rknn:
-            im = (im.cpu().numpy() * 255).astype("uint8")
-            im = im if isinstance(im, (list, tuple)) else [im]
-            y = self.rknn_model.inference(inputs=im)
 
         # TensorFlow (SavedModel, GraphDef, Lite, Edge TPU)
         else:

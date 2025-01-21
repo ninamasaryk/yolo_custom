@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 import contextlib
 import pickle
@@ -7,7 +7,6 @@ import types
 from copy import deepcopy
 from pathlib import Path
 
-import thop
 import torch
 import torch.nn as nn
 
@@ -86,6 +85,11 @@ from ultralytics.utils.torch_utils import (
     scale_img,
     time_sync,
 )
+
+try:
+    import thop
+except ImportError:
+    thop = None
 
 
 class BaseModel(nn.Module):
@@ -296,10 +300,10 @@ class BaseModel(nn.Module):
 
 
 class DetectionModel(BaseModel):
-    """YOLO detection model."""
+    """YOLOv8 detection model."""
 
-    def __init__(self, cfg="yolo11n.yaml", ch=3, nc=None, verbose=True):  # model, input channels, number of classes
-        """Initialize the YOLO detection model with the given config and parameters."""
+    def __init__(self, cfg="yolov8n.yaml", ch=3, nc=None, verbose=True):  # model, input channels, number of classes
+        """Initialize the YOLOv8 detection model with the given config and parameters."""
         super().__init__()
         self.yaml = cfg if isinstance(cfg, dict) else yaml_model_load(cfg)  # cfg dict
         if self.yaml["backbone"][0][2] == "Silence":
@@ -388,10 +392,10 @@ class DetectionModel(BaseModel):
 
 
 class OBBModel(DetectionModel):
-    """YOLO Oriented Bounding Box (OBB) model."""
+    """YOLOv8 Oriented Bounding Box (OBB) model."""
 
-    def __init__(self, cfg="yolo11n-obb.yaml", ch=3, nc=None, verbose=True):
-        """Initialize YOLO OBB model with given config and parameters."""
+    def __init__(self, cfg="yolov8n-obb.yaml", ch=3, nc=None, verbose=True):
+        """Initialize YOLOv8 OBB model with given config and parameters."""
         super().__init__(cfg=cfg, ch=ch, nc=nc, verbose=verbose)
 
     def init_criterion(self):
@@ -400,9 +404,9 @@ class OBBModel(DetectionModel):
 
 
 class SegmentationModel(DetectionModel):
-    """YOLO segmentation model."""
+    """YOLOv8 segmentation model."""
 
-    def __init__(self, cfg="yolo11n-seg.yaml", ch=3, nc=None, verbose=True):
+    def __init__(self, cfg="yolov8n-seg.yaml", ch=3, nc=None, verbose=True):
         """Initialize YOLOv8 segmentation model with given config and parameters."""
         super().__init__(cfg=cfg, ch=ch, nc=nc, verbose=verbose)
 
@@ -412,9 +416,9 @@ class SegmentationModel(DetectionModel):
 
 
 class PoseModel(DetectionModel):
-    """YOLO pose model."""
+    """YOLOv8 pose model."""
 
-    def __init__(self, cfg="yolo11n-pose.yaml", ch=3, nc=None, data_kpt_shape=(None, None), verbose=True):
+    def __init__(self, cfg="yolov8n-pose.yaml", ch=3, nc=None, data_kpt_shape=(None, None), verbose=True):
         """Initialize YOLOv8 Pose model."""
         if not isinstance(cfg, dict):
             cfg = yaml_model_load(cfg)  # load model YAML
@@ -429,9 +433,9 @@ class PoseModel(DetectionModel):
 
 
 class ClassificationModel(BaseModel):
-    """YOLO classification model."""
+    """YOLOv8 classification model."""
 
-    def __init__(self, cfg="yolo11n-cls.yaml", ch=3, nc=None, verbose=True):
+    def __init__(self, cfg="yolov8n-cls.yaml", ch=3, nc=None, verbose=True):
         """Init ClassificationModel with YAML, channels, number of classes, verbose flag."""
         super().__init__()
         self._from_yaml(cfg, ch, nc, verbose)
@@ -842,14 +846,14 @@ def torch_safe_load(weight, safe_only=False):
                     f"with https://github.com/ultralytics/yolov5.\nThis model is NOT forwards compatible with "
                     f"YOLOv8 at https://github.com/ultralytics/ultralytics."
                     f"\nRecommend fixes are to train a new model using the latest 'ultralytics' package or to "
-                    f"run a command with an official Ultralytics model, i.e. 'yolo predict model=yolo11n.pt'"
+                    f"run a command with an official Ultralytics model, i.e. 'yolo predict model=yolov8n.pt'"
                 )
             ) from e
         LOGGER.warning(
             f"WARNING ⚠️ {weight} appears to require '{e.name}', which is not in Ultralytics requirements."
             f"\nAutoInstall will run now for '{e.name}' but this feature will be removed in the future."
             f"\nRecommend fixes are to train a new model using the latest 'ultralytics' package or to "
-            f"run a command with an official Ultralytics model, i.e. 'yolo predict model=yolo11n.pt'"
+            f"run a command with an official Ultralytics model, i.e. 'yolo predict model=yolov8n.pt'"
         )
         check_requirements(e.name)  # install missing module
         ckpt = torch.load(file, map_location="cpu")
@@ -954,8 +958,14 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
         LOGGER.info(f"\n{'':>3}{'from':>20}{'n':>3}{'params':>10}  {'module':<45}{'arguments':<30}")
     ch = [ch]
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
-    base_modules = frozenset(
-        {
+    for i, (f, n, m, args) in enumerate(d["backbone"] + d["head"]):  # from, number, module, args
+        m = getattr(torch.nn, m[3:]) if "nn." in m else globals()[m]  # get module
+        for j, a in enumerate(args):
+            if isinstance(a, str):
+                with contextlib.suppress(ValueError):
+                    args[j] = locals()[a] if a in locals() else ast.literal_eval(a)
+        n = n_ = max(round(n * depth), 1) if n > 1 else n  # depth gain
+        if m in {
             Classify,
             Conv,
             ConvTranspose,
@@ -989,49 +999,33 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             PSA,
             SCDown,
             C2fCIB,
-        }
-    )
-    repeat_modules = frozenset(  # modules with 'repeat' arguments
-        {
-            BottleneckCSP,
-            C1,
-            C2,
-            C2f,
-            C3k2,
-            C2fAttn,
-            C3,
-            C3TR,
-            C3Ghost,
-            C3x,
-            RepC3,
-            C2fPSA,
-            C2fCIB,
-            C2PSA,
-        }
-    )
-    for i, (f, n, m, args) in enumerate(d["backbone"] + d["head"]):  # from, number, module, args
-        m = (
-            getattr(torch.nn, m[3:])
-            if "nn." in m
-            else getattr(__import__("torchvision").ops, m[16:])
-            if "torchvision.ops." in m
-            else globals()[m]
-        )  # get module
-        for j, a in enumerate(args):
-            if isinstance(a, str):
-                with contextlib.suppress(ValueError):
-                    args[j] = locals()[a] if a in locals() else ast.literal_eval(a)
-        n = n_ = max(round(n * depth), 1) if n > 1 else n  # depth gain
-        if m in base_modules:
+        }:
             c1, c2 = ch[f], args[0]
             if c2 != nc:  # if c2 not equal to number of classes (i.e. for Classify() output)
                 c2 = make_divisible(min(c2, max_channels) * width, 8)
-            if m is C2fAttn:  # set 1) embed channels and 2) num heads
-                args[1] = make_divisible(min(args[1], max_channels // 2) * width, 8)
-                args[2] = int(max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2])
+            if m is C2fAttn:
+                args[1] = make_divisible(min(args[1], max_channels // 2) * width, 8)  # embed channels
+                args[2] = int(
+                    max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2]
+                )  # num heads
 
             args = [c1, c2, *args[1:]]
-            if m in repeat_modules:
+            if m in {
+                BottleneckCSP,
+                C1,
+                C2,
+                C2f,
+                C3k2,
+                C2fAttn,
+                C3,
+                C3TR,
+                C3Ghost,
+                C3x,
+                RepC3,
+                C2fPSA,
+                C2fCIB,
+                C2PSA,
+            }:
                 args.insert(2, n)  # number of repeats
                 n = 1
             if m is C3k2:  # for M/L/X sizes
@@ -1040,7 +1034,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
                     args[3] = True
         elif m is AIFI:
             args = [ch[f], *args]
-        elif m in frozenset({HGStem, HGBlock}):
+        elif m in {HGStem, HGBlock}:
             c1, cm, c2 = ch[f], args[0], args[1]
             args = [c1, cm, c2, *args[2:]]
             if m is HGBlock:
@@ -1052,7 +1046,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             args = [ch[f]]
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
-        elif m in frozenset({Detect, WorldDetect, Segment, Pose, OBB, ImagePoolingAttn, v10Detect}):
+        elif m in {Detect, WorldDetect, Segment, Pose, OBB, ImagePoolingAttn, v10Detect}:
             args.append([ch[x] for x in f])
             if m is Segment:
                 args[2] = make_divisible(min(args[2], max_channels) * width, 8)
@@ -1060,16 +1054,12 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
                 m.legacy = legacy
         elif m is RTDETRDecoder:  # special case, channels arg must be passed in index 1
             args.insert(1, [ch[x] for x in f])
-        elif m is CBLinear:
+        elif m in {CBLinear, TorchVision, Index}:
             c2 = args[0]
             c1 = ch[f]
             args = [c1, c2, *args[1:]]
         elif m is CBFuse:
             c2 = ch[f[-1]]
-        elif m in frozenset({TorchVision, Index}):
-            c2 = args[0]
-            c1 = ch[f]
-            args = [*args[1:]]
         else:
             c2 = ch[f]
 

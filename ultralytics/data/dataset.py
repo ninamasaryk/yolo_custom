@@ -1,10 +1,12 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 import json
 from collections import defaultdict
 from itertools import repeat
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
+
+import tifffile
 
 import cv2
 import numpy as np
@@ -60,6 +62,7 @@ class YOLODataset(BaseDataset):
         self.use_keypoints = task == "pose"
         self.use_obb = task == "obb"
         self.data = data
+        self.ch = 33
         assert not (self.use_segments and self.use_keypoints), "Can not use both segments and keypoints."
         super().__init__(*args, **kwargs)
 
@@ -173,6 +176,7 @@ class YOLODataset(BaseDataset):
 
     def build_transforms(self, hyp=None):
         """Builds and appends transforms to the list."""
+        self.augment = False
         if self.augment:
             hyp.mosaic = hyp.mosaic if self.augment and not self.rect else 0.0
             hyp.mixup = hyp.mixup if self.augment and not self.rect else 0.0
@@ -299,7 +303,7 @@ class GroundingDataset(YOLODataset):
         LOGGER.info("Loading annotation file...")
         with open(self.json_file) as f:
             annotations = json.load(f)
-        images = {f"{x['id']:d}": x for x in annotations["images"]}
+        images = {f'{x["id"]:d}': x for x in annotations["images"]}
         img_to_anns = defaultdict(list)
         for ann in annotations["annotations"]:
             img_to_anns[ann["image_id"]].append(ann)
@@ -464,13 +468,13 @@ class ClassificationDataset:
         f, j, fn, im = self.samples[i]  # filename, index, filename.with_suffix('.npy'), image
         if self.cache_ram:
             if im is None:  # Warning: two separate if statements required here, do not combine this with previous line
-                im = self.samples[i][3] = cv2.imread(f)
+                im = self.samples[i][3] = tifffile.imread(f)
         elif self.cache_disk:
             if not fn.exists():  # load npy
-                np.save(fn.as_posix(), cv2.imread(f), allow_pickle=False)
+                np.save(fn.as_posix(), tifffile.imread(f), allow_pickle=False)
             im = np.load(fn)
         else:  # read image
-            im = cv2.imread(f)  # BGR
+            im = tifffile.imread(f)  # BGR
         # Convert NumPy array to PIL image
         im = Image.fromarray(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
         sample = self.torch_transforms(im)

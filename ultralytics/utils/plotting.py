@@ -1,4 +1,4 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# Ultralytics YOLO 🚀, AGPL-3.0 license
 
 import math
 import warnings
@@ -171,7 +171,7 @@ class Annotator:
         self.pil = pil or non_ascii or input_is_pil
         self.lw = line_width or max(round(sum(im.size if input_is_pil else im.shape) / 2 * 0.003), 2)
         if self.pil:  # use PIL
-            self.im = im if input_is_pil else Image.fromarray(im)
+            self.im = im[:,:,:3] if input_is_pil else Image.fromarray(im[:,:,:3])
             self.draw = ImageDraw.Draw(self.im)
             try:
                 font = check_font("Arial.Unicode.ttf" if non_ascii else font)
@@ -1069,7 +1069,7 @@ def plot_images(
         images *= 255  # de-normalise (optional)
 
     # Build Image
-    mosaic = np.full((int(ns * h), int(ns * w), 3), 255, dtype=np.uint8)  # init
+    mosaic = np.full((int(ns * h), int(ns * w), 33), 255, dtype=np.uint8)  # init
     for i in range(bs):
         x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
         mosaic[y : y + h, x : x + w, :] = images[i].transpose(1, 2, 0)
