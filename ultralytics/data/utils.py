@@ -104,7 +104,7 @@ def verify_image_label(args):
         # Verify images
         im = Image.open(im_file)
         im33 = tifffile.imread(im_file)
-        rgb_im = Image.fromarray(im33[:,:,:3])
+        rgb_im = Image.fromarray(im33[:,:,:3].astype(np.uint8))
         rgb_im.verify()  # PIL verify
         shape = exif_size(rgb_im)  # image size
         shape = (shape[1], shape[0])  # hw
