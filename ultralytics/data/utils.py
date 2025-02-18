@@ -102,15 +102,15 @@ def verify_image_label(args):
     nm, nf, ne, nc, msg, segments, keypoints = 0, 0, 0, 0, "", [], None
     try:
         # Verify images
-        im = Image.open(im_file)
+        format = 'tif'
         im33 = tifffile.imread(im_file)
         rgb_im = Image.fromarray(im33[:,:,:3].astype(np.uint8))
         rgb_im.verify()  # PIL verify
         shape = exif_size(rgb_im)  # image size
         shape = (shape[1], shape[0])  # hw
         assert (shape[0] > 9) & (shape[1] > 9), f"image size {shape} <10 pixels"
-        assert im.format.lower() in IMG_FORMATS, f"invalid image format {im.format}. {FORMATS_HELP_MSG}"
-        if im.format.lower() in {"jpg", "jpeg"}:
+        assert format.lower() in IMG_FORMATS, f"invalid image format {format}. {FORMATS_HELP_MSG}"
+        if format.lower() in {"jpg", "jpeg"}:
             with open(im_file, "rb") as f:
                 f.seek(-2, 2)
                 if f.read() != b"\xff\xd9":  # corrupt JPEG
