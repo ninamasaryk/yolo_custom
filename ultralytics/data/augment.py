@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 import torch
 from PIL import Image
+from skimage.transform import resize
 
 from ultralytics.data.utils import polygons2masks, polygons2masks_overlap
 from ultralytics.utils import LOGGER, colorstr
@@ -1583,7 +1584,7 @@ class LetterBox:
             dh /= 2
 
         if shape[::-1] != new_unpad:  # resize
-            img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+            img = resize(img, tuple(reversed(new_unpad)), anti_aliasing=True)
         top, bottom = int(round(dh - 0.1)) if self.center else 0, int(round(dh + 0.1))
         left, right = int(round(dw - 0.1)) if self.center else 0, int(round(dw + 0.1))
         # Create border for multi-channel image
