@@ -102,7 +102,8 @@ def verify_image_label(args):
     nm, nf, ne, nc, msg, segments, keypoints = 0, 0, 0, 0, "", [], None
     try:
         # Verify images
-        format = 'tif'
+        # im = Image.open(im_file)
+        format = "tif"
         im33 = tifffile.imread(im_file)
         rgb_im = Image.fromarray(im33[:,:,:3].astype(np.uint8))
         rgb_im.verify()  # PIL verify
