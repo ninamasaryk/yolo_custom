@@ -1584,7 +1584,7 @@ class LetterBox:
             dh /= 2
 
         if shape[::-1] != new_unpad:  # resize
-            img = resize(img, tuple(reversed(new_unpad)), anti_aliasing=True)
+            img = resize(img, tuple((reversed(new_unpad)))+(33,), anti_aliasing=True)
         top, bottom = int(round(dh - 0.1)) if self.center else 0, int(round(dh + 0.1))
         left, right = int(round(dw - 0.1)) if self.center else 0, int(round(dw + 0.1))
         # Create border for multi-channel image
