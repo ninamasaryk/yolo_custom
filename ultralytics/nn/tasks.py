@@ -273,6 +273,13 @@ class BaseModel(nn.Module):
             weights (dict | torch.nn.Module): The pre-trained weights to be loaded.
             verbose (bool, optional): Whether to log the transfer progress. Defaults to True.
         """
+
+        if weights.model[0].conv.weight.shape[0] != 33:
+            new_weight = torch.zeros((96, 33, 3, 3), dtype=weights.model[0].conv.weight.dtype)
+            new_weight[:, :3, :, :] = weights.model[0].conv.weight
+            nn.init.kaiming_normal_(new_weight[:, 3:, :, :])
+            weights.model[0].conv.weight = nn.Parameter(new_weight)
+
         model = weights["model"] if isinstance(weights, dict) else weights  # torchvision models are not dicts
         csd = model.float().state_dict()  # checkpoint state_dict as FP32
         csd = intersect_dicts(csd, self.state_dict())  # intersect
