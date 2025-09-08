@@ -11,10 +11,10 @@ import numpy as np
 import torch
 from transformers import AutoModel, AutoProcessor
 
-from ultralytics import YOLO
-from ultralytics.data.loaders import get_best_youtube_url
-from ultralytics.utils.plotting import Annotator
-from ultralytics.utils.torch_utils import select_device
+from ultralytics_mod33 import YOLO
+from ultralytics_mod33.data.loaders import get_best_youtube_url
+from ultralytics_mod33.utils.plotting import Annotator
+from ultralytics_mod33.utils.torch_utils import select_device
 
 
 class TorchVisionVideoClassifier:

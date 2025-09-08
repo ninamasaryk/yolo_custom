@@ -7,8 +7,8 @@ import numpy as np
 import onnxruntime as ort
 import torch
 
-from ultralytics.utils import ASSETS, yaml_load
-from ultralytics.utils.checks import check_requirements, check_yaml
+from ultralytics_mod33.utils import ASSETS, yaml_load
+from ultralytics_mod33.utils.checks import check_requirements, check_yaml
 
 
 class RTDETR:

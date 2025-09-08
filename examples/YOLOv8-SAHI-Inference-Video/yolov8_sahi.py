@@ -8,8 +8,8 @@ from sahi import AutoDetectionModel
 from sahi.predict import get_sliced_prediction
 from sahi.utils.ultralytics import download_yolo11n_model
 
-from ultralytics.utils.files import increment_path
-from ultralytics.utils.plotting import Annotator, colors
+from ultralytics_mod33.utils.files import increment_path
+from ultralytics_mod33.utils.plotting import Annotator, colors
 
 
 class SAHIInference:
